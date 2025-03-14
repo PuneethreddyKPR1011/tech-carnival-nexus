@@ -1,11 +1,14 @@
 
 import React from "react";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 type HackathonProps = {
   openRegistration: () => void;
+  isSubmitting?: boolean;
 };
 
-const Hackathon = ({ openRegistration }: HackathonProps) => {
+const Hackathon = ({ openRegistration, isSubmitting = false }: HackathonProps) => {
   return (
     <div className="flex flex-col md:flex-row gap-8 mb-16">
       <div className="md:w-1/2">
@@ -20,12 +23,20 @@ const Hackathon = ({ openRegistration }: HackathonProps) => {
             <p className="mb-6">
               Prize pool worth ₹1,00,000 with opportunities for internships and special recognitions from our sponsors.
             </p>
-            <button 
-              onClick={openRegistration} 
+            <Button 
+              onClick={openRegistration}
+              disabled={isSubmitting}
               className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full text-white font-medium hover:opacity-90 transition-opacity"
             >
-              Participate Now
-            </button>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                "Participate Now"
+              )}
+            </Button>
           </div>
         </div>
       </div>

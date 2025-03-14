@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // Import components
@@ -22,7 +22,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyC4ID_Be8z_6FpzhS2nZf2PA2R7Yj2qW20",
   authDomain: "abc-club-85f6f.firebaseapp.com",
   projectId: "abc-club-85f6f",
-  storageBucket: "abc-club-85f6f.firebasestorage.app",
+  storageBucket: "abc-club-85f6f.appspot.com",
   messagingSenderId: "809947302634",
   appId: "1:809947302634:web:4665b5e126971a17202593",
   measurementId: "G-SP7P816TV5"
@@ -32,6 +32,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
+
+// Check Firebase connection
+console.log("Firebase initialized with project:", firebaseConfig.projectId);
 
 const Index = () => {
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
@@ -164,19 +167,24 @@ const Index = () => {
   const handleRegistrationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    console.log("Starting registration submission:", formData.name);
 
     try {
       let fileUrl = "";
       
       // Upload file if present
       if (formData.collegeIdFile) {
+        console.log("Uploading file for:", formData.name);
         const fileRef = ref(storage, `college-ids/${formData.name}-${Date.now()}`);
-        await uploadBytes(fileRef, formData.collegeIdFile);
+        const uploadResult = await uploadBytes(fileRef, formData.collegeIdFile);
+        console.log("File uploaded successfully:", uploadResult.metadata.name);
+        
         fileUrl = await getDownloadURL(fileRef);
+        console.log("File URL generated:", fileUrl.substring(0, 20) + "...");
       }
       
-      // Add registration to database
-      await addDoc(collection(db, "hackathon-registrations"), {
+      // Prepare registration data
+      const registrationData = {
         name: formData.name,
         college: formData.college,
         studentId: formData.studentId,
@@ -186,8 +194,15 @@ const Index = () => {
         branch: formData.branch,
         degree: formData.degree,
         collegeIdUrl: fileUrl,
-        timestamp: new Date()
-      });
+        timestamp: serverTimestamp()
+      };
+      
+      console.log("Saving registration data to Firestore...");
+      
+      // Add registration to database
+      const docRef = await addDoc(collection(db, "hackathon-registrations"), registrationData);
+      
+      console.log("Registration document saved with ID:", docRef.id);
       
       toast({
         title: "Registration successful!",
@@ -200,7 +215,7 @@ const Index = () => {
       console.error("Error during registration:", error);
       toast({
         title: "Registration failed",
-        description: "Please try again later.",
+        description: "Please check your connection and try again.",
         variant: "destructive"
       });
     } finally {
@@ -212,14 +227,21 @@ const Index = () => {
   const handleProblemSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    console.log("Submitting problem selection:", formData.selectedProblem);
 
     try {
-      await addDoc(collection(db, "problem-selections"), {
+      const problemData = {
         participantName: formData.name,
         participantEmail: formData.email,
         selectedProblem: formData.selectedProblem,
-        timestamp: new Date()
-      });
+        timestamp: serverTimestamp()
+      };
+      
+      console.log("Saving problem selection to Firestore...");
+      
+      const docRef = await addDoc(collection(db, "problem-selections"), problemData);
+      
+      console.log("Problem selection document saved with ID:", docRef.id);
       
       toast({
         title: "Problem statement selected!",
@@ -235,13 +257,27 @@ const Index = () => {
       console.error("Error during problem selection:", error);
       toast({
         title: "Selection failed",
-        description: "Please try again later.",
+        description: "Please check your connection and try again.",
         variant: "destructive"
       });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Check Firebase connectivity on component mount
+  useEffect(() => {
+    const checkFirebase = async () => {
+      try {
+        const testCollection = collection(db, "test-connectivity");
+        console.log("Firebase connectivity test: collection accessed");
+      } catch (error) {
+        console.error("Firebase connectivity test failed:", error);
+      }
+    };
+    
+    checkFirebase();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black to-purple-900 text-white" ref={topRef}>
@@ -275,7 +311,8 @@ const Index = () => {
       {/* Competition Section */}
       <Competition 
         competitionRef={competitionRef} 
-        openRegistration={() => setIsRegistrationOpen(true)} 
+        openRegistration={() => setIsRegistrationOpen(true)}
+        isSubmitting={isSubmitting}
       />
 
       {/* Contact Section */}
